@@ -2,6 +2,8 @@
 // ceezblog.info - 29/2/2016
 //
 // different approach with back / next function, just kill TAB of combo ALT-TAB-LEFT/RIGHT
+// Fix disable "Backward / Forward" and "Middle mouse fix"
+
 
 #include <windows.h>
 #include <tchar.h>
@@ -80,7 +82,7 @@ void ShowContextMenu(HWND hWnd)
 		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix");
-		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Backward / Forward");
+		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward");
 		
 		InsertMenu(hMenu, -1, MF_SEPARATOR, SM_SEPARATOR, NULL);
 		InsertMenu(hMenu, -1, MF_BYPOSITION, SM_DESTROY, L"Quit");
@@ -320,6 +322,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case SM_THREEMOUSE_TAP:
 			ThreeFingerTap = !ThreeFingerTap;
 			break;
+		case SM_THREEMOUSE_SWIPE:
+			ThreeFingerSwipe = !ThreeFingerSwipe;
+			break;
 		case SM_ABOUTAPP:
 			ShowWindow(hHiddenDialog, SW_SHOW);
 			break;
@@ -461,6 +466,7 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 		// Three finger Tap
 		case VK_LWIN:
 			if (LAltDown) break;
+			if (!ThreeFingerTap) break;
 
 			LWinDown = TRUE;
 			Kill_SKey = FALSE;
