@@ -3,6 +3,7 @@
 //
 // different approach with back / next function, just kill TAB of combo ALT-TAB-LEFT/RIGHT
 // Fix disable "Backward / Forward" and "Middle mouse fix"
+// Open File Explorer With 3 fingers up gesture
 
 
 #include <windows.h>
@@ -14,6 +15,7 @@
 
 #define TRAY_ICON_ID			5001
 #define SWM_TRAYMSG				WM_APP		//	the message ID sent to our window
+#define SM_THREEMOUSE_SWIPE_UP	WM_APP + 6	//	3 fingers swipe up
 #define SM_DESTROY				WM_APP + 5	//	hide the window
 #define SM_THREEMOUSE_TAP		WM_APP + 4	//	3 fingers tap
 #define SM_THREEMOUSE_SWIPE		WM_APP + 3	//	3 fingers swipe - unused
@@ -48,6 +50,7 @@ HWND hHiddenDialog;
 
 static BOOL ThreeFingerTap = TRUE;
 static BOOL ThreeFingerSwipe = TRUE;
+static BOOL ThreeFingerSwipeUp = TRUE;
 static BOOL SwipeReady = FALSE;
 static BOOL SwipeLock = FALSE;
 
@@ -83,7 +86,8 @@ void ShowContextMenu(HWND hWnd)
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward");
-		
+		InsertMenu(hMenu, -1, (ThreeFingerSwipeUp) ? MF_CHECKED : MF_UNCHECKED, SM_THREEMOUSE_SWIPE_UP, L"Open File Explorer (3 fingers swipe up)");
+
 		InsertMenu(hMenu, -1, MF_SEPARATOR, SM_SEPARATOR, NULL);
 		InsertMenu(hMenu, -1, MF_BYPOSITION, SM_DESTROY, L"Quit");
 
@@ -325,6 +329,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case SM_THREEMOUSE_SWIPE:
 			ThreeFingerSwipe = !ThreeFingerSwipe;
 			break;
+		case SM_THREEMOUSE_SWIPE_UP:
+			ThreeFingerSwipeUp = !ThreeFingerSwipeUp;
+			break;
 		case SM_ABOUTAPP:
 			ShowWindow(hHiddenDialog, SW_SHOW);
 			break;
@@ -378,7 +385,7 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 		return CallNextHookEx(kbhHook, nCode, wParam, (LPARAM)(&kbh)); 
 	}
 	
-	if (!ThreeFingerTap && !ThreeFingerSwipe)
+	if (!ThreeFingerTap && !ThreeFingerSwipe && !ThreeFingerSwipeUp)
 		return CallNextHookEx(kbhHook, nCode, wParam, (LPARAM)(&kbh));
 
 	//if (killNextKey)
@@ -407,17 +414,30 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			break;
 
 		case VK_TAB:
-			if (!ThreeFingerSwipe) break;
+				if (!ThreeFingerSwipe && !ThreeFingerSwipeUp && !ThreeFingerTap) break;
 			// if alt is not press in time or ALT is not held down
 			if (LWinDown) //three finger swipe up gesture
 			{
-				if (timerOn) {StopTimeOut(); timerTick();Sleep(10);}
+				if (ThreeFingerSwipeUp)
+				{
+					// Open Explorer (LWIN + E)
+					sendKey(VK_LWIN);
+					sendKey('E');
+					sendKey('E', KEY_UP);
+					sendKey(VK_LWIN, KEY_UP);
+					if (timerOn) { StopTimeOut(); Sleep(10); }
+					return 1;
+				}
+				else
+				{
+					if (timerOn) { StopTimeOut(); timerTick(); Sleep(10); }
+				}
 				break;
 			}
 			if (!LAltDown) break;
 			if (!timerOn) break;
 
-			// timer is on, and alt is held down
+			// timer is on, and alt is held down			
 			StopTimeOut();
 			SwipeReady = TRUE;
 			SwipeLock = TRUE; //we got a lock on this
@@ -466,10 +486,10 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 		// Three finger Tap
 		case VK_LWIN:
 			if (LAltDown) break;
-			if (!ThreeFingerTap) break;
+			if (!ThreeFingerTap && !ThreeFingerSwipeUp) break;
 
 			LWinDown = TRUE;
-			Kill_SKey = FALSE;
+			if (ThreeFingerTap) { Kill_SKey = FALSE; }
 			kill_LWin = TRUE;
 			//keyCounter = 1;
 			if (timerOn) StopTimeOut();
@@ -478,12 +498,22 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			break;
 
 		case VK_S:
-			if (timerOn)
+			if (timerOn && ThreeFingerTap)
 			{
 				StopTimeOut(); // stop LWIN being fired on timer
 				Kill_SKey = TRUE; // we have a match 's'
 				sendMMiddle();
 				return 1; //kill the key
+			}
+			else if (kill_LWin)
+			{
+				// LWIN + S with TreeFigerTap desactivate
+				// send LWIN Key
+				sendKey(VK_LWIN);
+				sendKey('S');
+				sendKey('S', KEY_UP);
+				sendKey(VK_LWIN, KEY_UP);
+				return -1;
 			}
 			break;
 		
