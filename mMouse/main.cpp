@@ -2,9 +2,12 @@
 // ceezblog.info - 29/2/2016
 //
 // different approach with back / next function, just kill TAB of combo ALT-TAB-LEFT/RIGHT
+//
+// Cyrillev :
 // Fix disable "Backward / Forward" and "Middle mouse fix"
 // Open File Explorer With 3 fingers up gesture
-
+// Middle click now with 2 fingers Tap and Right with 3 fingers Tap
+// 
 
 #include <windows.h>
 #include <tchar.h>
@@ -47,6 +50,7 @@ HINSTANCE hInst;
 NOTIFYICONDATA	niData;	// Storing notify icon data
 HHOOK kbhHook;
 HWND hHiddenDialog;
+HHOOK mousehHook;
 
 static BOOL ThreeFingerTap = TRUE;
 static BOOL ThreeFingerSwipe = TRUE;
@@ -64,12 +68,19 @@ static BOOL kill_RightKey = FALSE;
 static BOOL Kill_SKey = FALSE;
 static BOOL passNextKey = FALSE;
 
+static BOOL RButtonDown = FALSE;
+static BOOL inhibRightClick = FALSE;
+static BOOL inhibLWin = FALSE;
+static BOOL OpenFileExplorer = FALSE;
+
 static BOOL timerOn = FALSE;
 static INT	keyCounter = 0;
 
 // Forward declarations of functions included in this code module:
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 __declspec(dllexport) LRESULT CALLBACK KBHookProc (int, WPARAM, LPARAM);
+__declspec(dllexport) LRESULT CALLBACK MouseHookProc(int, WPARAM, LPARAM);
+void sendMRight();
 
 
 //////////// FUNCTIONS //////////////
@@ -82,11 +93,11 @@ void ShowContextMenu(HWND hWnd)
 	HMENU hMenu = CreatePopupMenu();
 	if(hMenu)
 	{
-		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d...");
+		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
-		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix");
+		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix (2 fingers Tap)");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward");
-		InsertMenu(hMenu, -1, (ThreeFingerSwipeUp) ? MF_CHECKED : MF_UNCHECKED, SM_THREEMOUSE_SWIPE_UP, L"Open File Explorer (3 fingers swipe up)");
+		InsertMenu(hMenu, -1, (ThreeFingerSwipeUp)?MF_CHECKED : MF_UNCHECKED, SM_THREEMOUSE_SWIPE_UP, L"Open File Explorer (3 fingers swipe up)");
 
 		InsertMenu(hMenu, -1, MF_SEPARATOR, SM_SEPARATOR, NULL);
 		InsertMenu(hMenu, -1, MF_BYPOSITION, SM_DESTROY, L"Quit");
@@ -188,6 +199,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	// setup keyboard hook
 	kbhHook = SetWindowsHookEx(WH_KEYBOARD_LL, (HOOKPROC) KBHookProc, hInst, NULL);  
 
+	// setup mouse hook
+	if (ThreeFingerTap) { mousehHook = SetWindowsHookEx(WH_MOUSE_LL, (HOOKPROC)MouseHookProc, hInst, NULL); }
+
 	// Reposition the window
 	int ScreenX=0;
 	int ScreenY=0;
@@ -230,6 +244,12 @@ void timerTick()
 	{
 		kill_LWin = FALSE;
 		sendKey(VK_LWIN);
+		return;
+	}
+	if (RButtonDown)
+	{
+		RButtonDown = FALSE;
+		sendMRight();
 		return;
 	}
 }
@@ -308,6 +328,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_DESTROY:
 		UnhookWindowsHookEx(kbhHook);
+		UnhookWindowsHookEx(mousehHook);
 		PostQuitMessage(0);
 		break;
 		
@@ -325,6 +346,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case SM_THREEMOUSE_TAP:
 			ThreeFingerTap = !ThreeFingerTap;
+			if (ThreeFingerTap) { mousehHook = SetWindowsHookEx(WH_MOUSE_LL, (HOOKPROC)MouseHookProc, hInst, NULL); }
+			else { UnhookWindowsHookEx(mousehHook); }
 			break;
 		case SM_THREEMOUSE_SWIPE:
 			ThreeFingerSwipe = !ThreeFingerSwipe;
@@ -369,6 +392,57 @@ void sendMMiddle()
 	mouse_event(MOUSEEVENTF_MIDDLEUP,0,0,NULL,NULL);
 }
 
+//Right mouse
+void sendMRight()
+{
+	inhibRightClick = TRUE;
+	mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
+	mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, NULL, NULL);
+	inhibRightClick = FALSE;
+}
+// Hook process of mouse hook
+// Process cases of mouse-button to determine when to send mouse button 3,4,5
+// Everything goes here
+__declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	
+
+	if (nCode < HC_ACTION)
+		return CallNextHookEx(mousehHook, nCode, wParam, lParam);
+
+	switch (wParam)
+	{
+		// Three finger Swipe
+		case WM_RBUTTONDOWN:
+			if (!inhibRightClick)
+			{
+				RButtonDown = TRUE;
+				///if (!ThreeFingerSwipe) break;
+
+				if (timerOn) StopTimeOut();
+				SetTimeOut();
+				return 1;
+			}
+			break;
+		
+		case WM_RBUTTONUP:
+			if (timerOn && RButtonDown)
+			{
+				StopTimeOut(); // stop LWIN being fired on timer
+				sendMMiddle();
+				RButtonDown = FALSE;
+				return 1; //kill the key
+			}
+			break;
+			
+
+	}
+	
+	
+		
+	return CallNextHookEx(mousehHook, nCode, wParam, lParam);
+
+}
 // Hook process of Keyboard hook
 // Process cases of key-press to determine when to send mouse button 3,4,5
 // Everything goes here
@@ -420,19 +494,19 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			{
 				if (ThreeFingerSwipeUp)
 				{
-					// Open Explorer (LWIN + E)
-					sendKey(VK_LWIN);
-					sendKey('E');
-					sendKey('E', KEY_UP);
-					sendKey(VK_LWIN, KEY_UP);
-					if (timerOn) { StopTimeOut(); Sleep(10); }
+					
+					OpenFileExplorer = TRUE;
+					kill_Tab = TRUE;
+					kill_LWin = TRUE;
+					
+					//if (timerOn) { StopTimeOut(); /*Sleep(10);*/ }
 					return 1;
 				}
 				else
 				{
 					if (timerOn) { StopTimeOut(); timerTick(); Sleep(10); }
 				}
-				break;
+				
 			}
 			if (!LAltDown) break;
 			if (!timerOn) break;
@@ -502,7 +576,9 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			{
 				StopTimeOut(); // stop LWIN being fired on timer
 				Kill_SKey = TRUE; // we have a match 's'
-				sendMMiddle();
+				//sendMMiddle();
+				sendMRight();
+				
 				return 1; //kill the key
 			}
 			else if (kill_LWin)
@@ -547,7 +623,11 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			break;
 			
 		case VK_TAB:
-			if (kill_Tab) {kill_Tab=FALSE; return 1;}
+			if (kill_Tab) 
+			{
+				kill_Tab=FALSE; 
+				return 1;
+			}
 			break;
 
 		case VK_LEFT:
@@ -560,6 +640,15 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 
 		// Three finger tap
 		case VK_LWIN:
+			if (OpenFileExplorer)
+			{
+				// Open Explorer (LWIN + E)
+				sendKey(VK_LWIN);
+				sendKey('E');
+				sendKey('E', KEY_UP);
+				sendKey(VK_LWIN, KEY_UP);
+				OpenFileExplorer = FALSE;
+			}
 			LWinDown = FALSE;
 			if (kill_LWin) {kill_LWin=FALSE; return 1;}
 			break;
