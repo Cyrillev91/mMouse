@@ -21,7 +21,7 @@
 #define SM_THREEMOUSE_SWIPE_UP	WM_APP + 6	//	3 fingers swipe up
 #define SM_DESTROY				WM_APP + 5	//	hide the window
 #define SM_THREEMOUSE_TAP		WM_APP + 4	//	3 fingers tap
-#define SM_THREEMOUSE_SWIPE		WM_APP + 3	//	3 fingers swipe - unused
+#define SM_THREEMOUSE_SWIPE		WM_APP + 3	//	3 fingers swipe
 #define SM_ABOUTAPP				WM_APP + 2
 #define SM_SEPARATOR			WM_APP + 1	//	SEPARATOR
 #define VK_S					83
@@ -67,10 +67,9 @@ static BOOL kill_Leftkey = FALSE;
 static BOOL kill_RightKey = FALSE;
 static BOOL Kill_SKey = FALSE;
 static BOOL passNextKey = FALSE;
+static BOOL passNextClick = FALSE;
 
 static BOOL RButtonDown = FALSE;
-static BOOL inhibRightClick = FALSE;
-static BOOL inhibLWin = FALSE;
 static BOOL OpenFileExplorer = FALSE;
 
 static BOOL timerOn = FALSE;
@@ -96,7 +95,7 @@ void ShowContextMenu(HWND hWnd)
 		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix (2 fingers Tap)");
-		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward");
+		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward (3 fingers swipe left / right");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipeUp)?MF_CHECKED : MF_UNCHECKED, SM_THREEMOUSE_SWIPE_UP, L"Open File Explorer (3 fingers swipe up)");
 
 		InsertMenu(hMenu, -1, MF_SEPARATOR, SM_SEPARATOR, NULL);
@@ -135,7 +134,7 @@ void sendKey(DWORD vkKey, cKeyEvent keyevent = KEY_DOWN)
 	passNextKey = TRUE;
 	keybd_event(vkKey, MapVirtualKey(vkKey, 0), _keyevent,0 );
 
-	//wait until the LMENU is process by the hook or wait 1s until break out while
+	//wait until the key is process by the hook or wait 1s until break out while
 	int k=11;
 	while (passNextKey || k>1) {Sleep(3); k--;} 
 
@@ -249,7 +248,13 @@ void timerTick()
 	if (RButtonDown)
 	{
 		RButtonDown = FALSE;
-		sendMRight();
+
+		passNextClick = TRUE;
+		mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
+		
+		//wait until the Click is process by the hook or wait 1s until break out while
+		int k = 11;
+		while (passNextClick || k>1) { Sleep(3); k--; }
 		return;
 	}
 }
@@ -346,7 +351,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case SM_THREEMOUSE_TAP:
 			ThreeFingerTap = !ThreeFingerTap;
-			if (ThreeFingerTap) { mousehHook = SetWindowsHookEx(WH_MOUSE_LL, (HOOKPROC)MouseHookProc, hInst, NULL); }
+			if (ThreeFingerTap) 
+			{ 
+				mousehHook = SetWindowsHookEx(WH_MOUSE_LL, (HOOKPROC)MouseHookProc, hInst, NULL); 
+			}
 			else { UnhookWindowsHookEx(mousehHook); }
 			break;
 		case SM_THREEMOUSE_SWIPE:
@@ -371,14 +379,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
-//Backward button
+//Backward button - Not used
 void sendMBack()
 {
 	mouse_event(MOUSEEVENTF_XDOWN,0,0,XBUTTON1,NULL);
 	mouse_event(MOUSEEVENTF_XUP,0,0,XBUTTON1,NULL);
 }
 
-//Forward button
+//Forward button - Not used
 void sendMNext()
 {
 	mouse_event(MOUSEEVENTF_XDOWN,0,0,XBUTTON2,NULL);
@@ -388,17 +396,23 @@ void sendMNext()
 //Middle mouse
 void sendMMiddle()
 {
+	passNextClick = TRUE;
 	mouse_event(MOUSEEVENTF_MIDDLEDOWN,0,0,NULL,NULL);
 	mouse_event(MOUSEEVENTF_MIDDLEUP,0,0,NULL,NULL);
+	//wait until the Click is process by the hook or wait 1s until break out while
+	int k = 11;
+	while (passNextClick || k>1) { Sleep(3); k--; }
 }
 
 //Right mouse
 void sendMRight()
 {
-	inhibRightClick = TRUE;
+	passNextClick = TRUE;
 	mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
 	mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, NULL, NULL);
-	inhibRightClick = FALSE;
+	//wait until the Click is process by the hook or wait 1s until break out while
+	int k = 11;
+	while (passNextClick || k>1) { Sleep(3); k--; }
 }
 // Hook process of mouse hook
 // Process cases of mouse-button to determine when to send mouse button 3,4,5
@@ -409,20 +423,20 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 
 	if (nCode < HC_ACTION)
 		return CallNextHookEx(mousehHook, nCode, wParam, lParam);
+	if (passNextClick)
+	{
+		passNextClick = FALSE;
+		return CallNextHookEx(mousehHook, nCode, wParam, lParam);
+	}
 
 	switch (wParam)
 	{
 		// Three finger Swipe
 		case WM_RBUTTONDOWN:
-			if (!inhibRightClick)
-			{
-				RButtonDown = TRUE;
-				///if (!ThreeFingerSwipe) break;
-
-				if (timerOn) StopTimeOut();
-				SetTimeOut();
-				return 1;
-			}
+			RButtonDown = TRUE;
+			if (timerOn) StopTimeOut();
+			SetTimeOut();
+			return 1; // kil the key (retaure if timeout eg real right click)
 			break;
 		
 		case WM_RBUTTONUP:
@@ -434,15 +448,11 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 				return 1; //kill the key
 			}
 			break;
-			
-
 	}
 	
-	
-		
 	return CallNextHookEx(mousehHook, nCode, wParam, lParam);
-
 }
+
 // Hook process of Keyboard hook
 // Process cases of key-press to determine when to send mouse button 3,4,5
 // Everything goes here
