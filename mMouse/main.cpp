@@ -7,7 +7,9 @@
 // Fix disable "Backward / Forward" and "Middle mouse fix"
 // Open File Explorer With 3 fingers up gesture
 // Middle click now with 2 fingers Tap and Right with 3 fingers Tap
-// 
+// Fix : while (passNextClick || k>1) { Sleep(3); k--; } ==> while (passNextClick && k>1) { Sleep(3); k--; }
+// Fix : while (passNextKey || k>1) {Sleep(3); k--;}  ==> while (passNextKey && k>1) {Sleep(3); k--;} 
+//
 
 #include <windows.h>
 #include <tchar.h>
@@ -92,7 +94,7 @@ void ShowContextMenu(HWND hWnd)
 	HMENU hMenu = CreatePopupMenu();
 	if(hMenu)
 	{
-		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod...");
+		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 07/07/2016...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix (2 fingers Tap)");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward (3 fingers swipe left / right");
@@ -136,7 +138,7 @@ void sendKey(DWORD vkKey, cKeyEvent keyevent = KEY_DOWN)
 
 	//wait until the key is process by the hook or wait 1s until break out while
 	int k=11;
-	while (passNextKey || k>1) {Sleep(3); k--;} 
+	while (passNextKey && k>1) {Sleep(3); k--;} 
 
 }
 
@@ -254,7 +256,7 @@ void timerTick()
 		
 		//wait until the Click is process by the hook or wait 1s until break out while
 		int k = 11;
-		while (passNextClick || k>1) { Sleep(3); k--; }
+		while (passNextClick && k>1) { Sleep(3); k--; }
 		return;
 	}
 }
@@ -401,7 +403,7 @@ void sendMMiddle()
 	mouse_event(MOUSEEVENTF_MIDDLEUP,0,0,NULL,NULL);
 	//wait until the Click is process by the hook or wait 1s until break out while
 	int k = 11;
-	while (passNextClick || k>1) { Sleep(3); k--; }
+	while (passNextClick && k>1) { Sleep(3); k--; }
 }
 
 //Right mouse
@@ -412,7 +414,7 @@ void sendMRight()
 	mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, NULL, NULL);
 	//wait until the Click is process by the hook or wait 1s until break out while
 	int k = 11;
-	while (passNextClick || k>1) { Sleep(3); k--; }
+	while (passNextClick && k>1) { Sleep(3); k--; }
 }
 // Hook process of mouse hook
 // Process cases of mouse-button to determine when to send mouse button 3,4,5
