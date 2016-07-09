@@ -9,6 +9,7 @@
 // Middle click now with 2 fingers Tap and Right with 3 fingers Tap
 // Fix : while (passNextClick || k>1) { Sleep(3); k--; } ==> while (passNextClick && k>1) { Sleep(3); k--; }
 // Fix : while (passNextKey || k>1) {Sleep(3); k--;}  ==> while (passNextKey && k>1) {Sleep(3); k--;} 
+// Add : SendMouseClick() function, and change function name : sendKey() ==> SendKey()
 //
 
 #include <windows.h>
@@ -94,10 +95,10 @@ void ShowContextMenu(HWND hWnd)
 	HMENU hMenu = CreatePopupMenu();
 	if(hMenu)
 	{
-		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 07/07/2016...");
+		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 09/07/2016...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix (2 fingers Tap)");
-		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward (3 fingers swipe left / right");
+		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward (3 fingers swipe left / right)");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipeUp)?MF_CHECKED : MF_UNCHECKED, SM_THREEMOUSE_SWIPE_UP, L"Open File Explorer (3 fingers swipe up)");
 
 		InsertMenu(hMenu, -1, MF_SEPARATOR, SM_SEPARATOR, NULL);
@@ -127,7 +128,7 @@ void StopTimeOut()
 	timerOn = FALSE;
 }
 
-void sendKey(DWORD vkKey, cKeyEvent keyevent = KEY_DOWN)
+void SendKey(DWORD vkKey, cKeyEvent keyevent = KEY_DOWN)
 {	
 	DWORD _keyevent;
 	if (keyevent == KEY_UP) _keyevent = KEYEVENTF_KEYUP; 
@@ -140,6 +141,16 @@ void sendKey(DWORD vkKey, cKeyEvent keyevent = KEY_DOWN)
 	int k=11;
 	while (passNextKey && k>1) {Sleep(3); k--;} 
 
+}
+
+void SendMouseClick(DWORD dwFlags, DWORD dx, DWORD dy, DWORD dwData, ULONG_PTR dwExtraInfo)
+{	
+	passNextClick = TRUE;
+	mouse_event(dwFlags, dx, dy, dwData, dwExtraInfo);
+
+	//wait until the Click is process by the hook or wait 1s until break out while
+	int k = 11;
+	while (passNextClick && k>1) { Sleep(3); k--; }
 }
 
 
@@ -201,7 +212,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	kbhHook = SetWindowsHookEx(WH_KEYBOARD_LL, (HOOKPROC) KBHookProc, hInst, NULL);  
 
 	// setup mouse hook
-	if (ThreeFingerTap) { mousehHook = SetWindowsHookEx(WH_MOUSE_LL, (HOOKPROC)MouseHookProc, hInst, NULL); }
+	if (ThreeFingerTap) {mousehHook = SetWindowsHookEx(WH_MOUSE_LL, (HOOKPROC)MouseHookProc, hInst, NULL); }
 
 	// Reposition the window
 	int ScreenX=0;
@@ -237,26 +248,20 @@ void timerTick()
 	{
 		kill_Tab = FALSE;
 		//kill_LAlt = FALSE; // just kill TAB so Alt - LEFT = back
-		//sendKey(VK_LMENU);
+		//SendKey(VK_LMENU);
 		return;
 	}
 	
 	if (LWinDown)
 	{
 		kill_LWin = FALSE;
-		sendKey(VK_LWIN);
+		SendKey(VK_LWIN);
 		return;
 	}
 	if (RButtonDown)
 	{
 		RButtonDown = FALSE;
-
-		passNextClick = TRUE;
-		mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
-		
-		//wait until the Click is process by the hook or wait 1s until break out while
-		int k = 11;
-		while (passNextClick && k>1) { Sleep(3); k--; }
+		SendMouseClick(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
 		return;
 	}
 }
@@ -384,37 +389,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 //Backward button - Not used
 void sendMBack()
 {
-	mouse_event(MOUSEEVENTF_XDOWN,0,0,XBUTTON1,NULL);
-	mouse_event(MOUSEEVENTF_XUP,0,0,XBUTTON1,NULL);
+	SendMouseClick(MOUSEEVENTF_XDOWN,0,0,XBUTTON1,NULL);
+	SendMouseClick(MOUSEEVENTF_XUP,0,0,XBUTTON1,NULL);
 }
 
 //Forward button - Not used
 void sendMNext()
 {
-	mouse_event(MOUSEEVENTF_XDOWN,0,0,XBUTTON2,NULL);
-	mouse_event(MOUSEEVENTF_XUP,0,0,XBUTTON2,NULL);
+	SendMouseClick(MOUSEEVENTF_XDOWN,0,0,XBUTTON2,NULL);
+	SendMouseClick(MOUSEEVENTF_XUP,0,0,XBUTTON2,NULL);
 }
 
 //Middle mouse
 void sendMMiddle()
 {
-	passNextClick = TRUE;
-	mouse_event(MOUSEEVENTF_MIDDLEDOWN,0,0,NULL,NULL);
-	mouse_event(MOUSEEVENTF_MIDDLEUP,0,0,NULL,NULL);
-	//wait until the Click is process by the hook or wait 1s until break out while
-	int k = 11;
-	while (passNextClick && k>1) { Sleep(3); k--; }
+	SendMouseClick(MOUSEEVENTF_MIDDLEDOWN,0,0,NULL,NULL);
+	SendMouseClick(MOUSEEVENTF_MIDDLEUP,0,0,NULL,NULL);
 }
 
 //Right mouse
 void sendMRight()
 {
-	passNextClick = TRUE;
-	mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
-	mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, NULL, NULL);
-	//wait until the Click is process by the hook or wait 1s until break out while
-	int k = 11;
-	while (passNextClick && k>1) { Sleep(3); k--; }
+	SendMouseClick(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
+	SendMouseClick(MOUSEEVENTF_RIGHTUP, 0, 0, NULL, NULL);
 }
 // Hook process of mouse hook
 // Process cases of mouse-button to determine when to send mouse button 3,4,5
@@ -542,8 +539,8 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 				kill_Leftkey = TRUE;
 				if (SwipeReady) 
 				{
-					sendKey(VK_LEFT);
-					sendKey(VK_LEFT,KEY_UP);
+					SendKey(VK_LEFT);
+					SendKey(VK_LEFT,KEY_UP);
 					SwipeReady = FALSE;
 				}
 				return 1;
@@ -561,8 +558,8 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 				kill_RightKey = TRUE;
 				if (SwipeReady) 
 				{
-					sendKey(VK_RIGHT);
-					sendKey(VK_RIGHT,KEY_UP);
+					SendKey(VK_RIGHT);
+					SendKey(VK_RIGHT,KEY_UP);
 					SwipeReady = FALSE;
 				}
 				return 1;
@@ -597,10 +594,10 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			{
 				// LWIN + S with TreeFigerTap desactivate
 				// send LWIN Key
-				sendKey(VK_LWIN);
-				sendKey('S');
-				sendKey('S', KEY_UP);
-				sendKey(VK_LWIN, KEY_UP);
+				SendKey(VK_LWIN);
+				SendKey('S');
+				SendKey('S', KEY_UP);
+				SendKey(VK_LWIN, KEY_UP);
 				return -1;
 			}
 			break;
@@ -655,10 +652,10 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			if (OpenFileExplorer)
 			{
 				// Open Explorer (LWIN + E)
-				sendKey(VK_LWIN);
-				sendKey('E');
-				sendKey('E', KEY_UP);
-				sendKey(VK_LWIN, KEY_UP);
+				SendKey(VK_LWIN);
+				SendKey('E');
+				SendKey('E', KEY_UP);
+				SendKey(VK_LWIN, KEY_UP);
 				OpenFileExplorer = FALSE;
 			}
 			LWinDown = FALSE;
