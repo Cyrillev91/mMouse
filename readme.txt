@@ -23,3 +23,14 @@ Version 0.1
 
 Version 1.0:
 - Recode from scratch
+
+
+
+------------------------------------------------------------------------------------------------------------
+
+Modified by Cyrillev91 :
+
+09/07/2016 :
+- Open File Explorer With 3 fingers up gesture
+- Middle click now with 2 fingers Tap and Right click with 3 fingers Tap
+
