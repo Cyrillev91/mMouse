@@ -33,4 +33,8 @@ Modified by Cyrillev91 :
 09/07/2016 :
 - Open File Explorer With 3 fingers up gesture
 - Middle click now with 2 fingers Tap and Right click with 3 fingers Tap
+23/07/2016 :
+- Add Debug string info
+- optimize 3 fingers Tap and disable 3/2 fingers Tap
+
 
