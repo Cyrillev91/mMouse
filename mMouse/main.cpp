@@ -255,6 +255,7 @@ void timerTick()
 	if (LWinDown)
 	{
 		kill_LWin = FALSE;
+		LWinDown = FALSE;
 		SendKey(VK_LWIN);
 		return;
 	}
