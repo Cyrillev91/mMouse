@@ -95,7 +95,7 @@ void ShowContextMenu(HWND hWnd)
 	HMENU hMenu = CreatePopupMenu();
 	if(hMenu)
 	{
-		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 09/07/2016...");
+		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 23/07/2016...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix (2 fingers Tap)");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward (3 fingers swipe left / right)");
@@ -246,6 +246,7 @@ void timerTick()
 	StopTimeOut();
 	if (LAltDown)
 	{
+		OutputDebugStringA(LPCSTR("timerTick : LAltDown ==> kill_tab = false \n"));
 		kill_Tab = FALSE;
 		//kill_LAlt = FALSE; // just kill TAB so Alt - LEFT = back
 		//SendKey(VK_LMENU);
@@ -254,6 +255,7 @@ void timerTick()
 	
 	if (LWinDown)
 	{
+		OutputDebugStringA(LPCSTR("timerTick : re-send VK_LWIN down\n"));
 		kill_LWin = FALSE;
 		LWinDown = FALSE;
 		SendKey(VK_LWIN);
@@ -261,6 +263,7 @@ void timerTick()
 	}
 	if (RButtonDown)
 	{
+		OutputDebugStringA(LPCSTR("timerTick : re-send WM_RBUTTONDOWN \n"));
 		RButtonDown = FALSE;
 		SendMouseClick(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
 		return;
@@ -404,6 +407,7 @@ void sendMNext()
 //Middle mouse
 void sendMMiddle()
 {
+	OutputDebugStringA(LPCSTR("(mMouse : send MiddleClick)\n"));
 	SendMouseClick(MOUSEEVENTF_MIDDLEDOWN,0,0,NULL,NULL);
 	SendMouseClick(MOUSEEVENTF_MIDDLEUP,0,0,NULL,NULL);
 }
@@ -411,6 +415,7 @@ void sendMMiddle()
 //Right mouse
 void sendMRight()
 {
+	OutputDebugStringA(LPCSTR("(mMouse : send RightClick)\n"));
 	SendMouseClick(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
 	SendMouseClick(MOUSEEVENTF_RIGHTUP, 0, 0, NULL, NULL);
 }
@@ -433,23 +438,28 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 	{
 		// Three finger Swipe
 		case WM_RBUTTONDOWN:
+			OutputDebugStringA(LPCSTR("WM_RBUTTONDOWN : "));
 			RButtonDown = TRUE;
 			if (timerOn) StopTimeOut();
 			SetTimeOut();
-			return 1; // kil the key (retaure if timeout eg real right click)
+			OutputDebugStringA(LPCSTR("kill\n"));
+			return 1; // kiLl the key (retaure if timeout eg real right click)
 			break;
 		
 		case WM_RBUTTONUP:
+			OutputDebugStringA(LPCSTR("WM_RBUTTONUP : "));
 			if (timerOn && RButtonDown)
 			{
 				StopTimeOut(); // stop LWIN being fired on timer
+				OutputDebugStringA(LPCSTR("kill\n"));
 				sendMMiddle();
-				RButtonDown = FALSE;
+				RButtonDown = FALSE;				
 				return 1; //kill the key
 			}
+			OutputDebugStringA(LPCSTR("pass\n"));
 			break;
 	}
-	
+	//OutputDebugStringA(LPCSTR("Mouse pass\n"));
 	return CallNextHookEx(mousehHook, nCode, wParam, lParam);
 }
 
@@ -486,6 +496,7 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 		{
 		// Three finger Swipe
 		case VK_LMENU:
+			OutputDebugStringA(LPCSTR("VK_MENU (LALT) Down : "));
 			LAltDown = TRUE;
 			if (LWinDown) break;
 			if (!ThreeFingerSwipe) break;
@@ -498,6 +509,7 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			break;
 
 		case VK_TAB:
+			OutputDebugStringA(LPCSTR("VK_TAB Down : "));
 				if (!ThreeFingerSwipe && !ThreeFingerSwipeUp && !ThreeFingerTap) break;
 			// if alt is not press in time or ALT is not held down
 			if (LWinDown) //three finger swipe up gesture
@@ -510,6 +522,7 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 					kill_LWin = TRUE;
 					
 					//if (timerOn) { StopTimeOut(); /*Sleep(10);*/ }
+					OutputDebugStringA(LPCSTR("kill\n"));
 					return 1;
 				}
 				else
@@ -526,10 +539,12 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			SwipeReady = TRUE;
 			SwipeLock = TRUE; //we got a lock on this
 			kill_Tab = TRUE;
+			OutputDebugStringA(LPCSTR("kill\n"));
 			return 1;
 			break;
 
 		case VK_LEFT:
+			OutputDebugStringA(LPCSTR("VK_LEFT Down : "));
 			if (LWinDown)
 			{
 				if (timerOn) {StopTimeOut(); timerTick();Sleep(10);}
@@ -538,17 +553,20 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			if (SwipeLock)
 			{
 				kill_Leftkey = TRUE;
+				OutputDebugStringA(LPCSTR("kill\n"));
 				if (SwipeReady) 
 				{
+					OutputDebugStringA(LPCSTR("(mMouse : send backward)\n"));
 					SendKey(VK_LEFT);
 					SendKey(VK_LEFT,KEY_UP);
 					SwipeReady = FALSE;
-				}
+				}				
 				return 1;
 			}
 			break;
 
 		case VK_RIGHT:
+			OutputDebugStringA(LPCSTR("VK_RIGHT Down : "));
 			if (LWinDown)
 			{
 				if (timerOn) {StopTimeOut(); timerTick();Sleep(10);}
@@ -557,8 +575,10 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			if (SwipeLock)
 			{
 				kill_RightKey = TRUE;
+				OutputDebugStringA(LPCSTR("kill\n"));
 				if (SwipeReady) 
 				{
+					OutputDebugStringA(LPCSTR("(mMouse : send forward)\n"));
 					SendKey(VK_RIGHT);
 					SendKey(VK_RIGHT,KEY_UP);
 					SwipeReady = FALSE;
@@ -569,6 +589,8 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 
 		// Three finger Tap
 		case VK_LWIN:
+			OutputDebugStringA(LPCSTR("VK_LWIN Down : "));
+						
 			if (LAltDown) break;
 			if (!ThreeFingerTap && !ThreeFingerSwipeUp) break;
 
@@ -578,35 +600,42 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			//keyCounter = 1;
 			if (timerOn) StopTimeOut();
 			SetTimeOut();
+			OutputDebugStringA(LPCSTR("kill\n"));
 			return 1; // kill the key
 			break;
 
 		case VK_S:
-			if (timerOn && ThreeFingerTap)
+			OutputDebugStringA(LPCSTR("VK_S Down : "));
+			if (timerOn && ThreeFingerTap && LWinDown)
 			{
 				StopTimeOut(); // stop LWIN being fired on timer
 				Kill_SKey = TRUE; // we have a match 's'
+				OutputDebugStringA(LPCSTR("kill\n"));
 				//sendMMiddle();
 				sendMRight();
-				
 				return 1; //kill the key
 			}
-			else if (kill_LWin)
+			else if (LWinDown)
 			{
 				// LWIN + S with TreeFigerTap desactivate
 				// send LWIN Key
-				SendKey(VK_LWIN);
-				SendKey('S');
-				SendKey('S', KEY_UP);
-				SendKey(VK_LWIN, KEY_UP);
-				return -1;
+				
+				StopTimeOut(); timerTick(); //SendKey(VK_LWIN); before VK_S
+				Kill_SKey = FALSE;
+				kill_LWin = FALSE;
+
+				//SendKey('S');
+				//SendKey('S', KEY_UP);
+				//SendKey(VK_LWIN, KEY_UP);
+				//return -1;
 			}
 			break;
 		
 		default: //if other key is pressed, just pass it
+			OutputDebugStringA(LPCSTR("other key Down : "));
 			if (LWinDown && timerOn) {StopTimeOut(); timerTick();Sleep(10);}
 				break; 
-		
+				
 		}
 
 		// if other keys, just do nothing at all
@@ -620,6 +649,7 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 		{
 		// Three finger Swipe
 		case VK_LMENU:
+			OutputDebugStringA(LPCSTR("VK_MENU (LALT) Up : "));
 			LAltDown = FALSE;
 			SwipeLock = FALSE;
 			SwipeReady = FALSE;
@@ -633,26 +663,33 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			break;
 			
 		case VK_TAB:
+			OutputDebugStringA(LPCSTR("VK_TAB Up : "));
 			if (kill_Tab) 
 			{
-				kill_Tab=FALSE; 
+				kill_Tab=FALSE;
+				OutputDebugStringA(LPCSTR("kill\n"));
 				return 1;
 			}
 			break;
 
 		case VK_LEFT:
-			if (kill_Leftkey) {kill_Leftkey=FALSE; return 1;}
+			OutputDebugStringA(LPCSTR("VK_LEFT Up : "));
+			if (kill_Leftkey) {kill_Leftkey=FALSE; OutputDebugStringA(LPCSTR("kill\n")); return 1;}
 			break;
 
 		case VK_RIGHT:
-			if (kill_RightKey) {kill_RightKey=FALSE; return 1;}
+			OutputDebugStringA(LPCSTR("VK_RIGHT Up : "));
+			if (kill_RightKey) {kill_RightKey=FALSE; OutputDebugStringA(LPCSTR("kill\n")); return 1;}
 			break;
 
 		// Three finger tap
 		case VK_LWIN:
+			OutputDebugStringA(LPCSTR("VK_LWIN Up : "));
+			if (kill_LWin) { OutputDebugStringA(LPCSTR("kill\n")); }
 			if (OpenFileExplorer)
 			{
 				// Open Explorer (LWIN + E)
+				OutputDebugStringA(LPCSTR("(mMouse : open File Explorer)\n"));
 				SendKey(VK_LWIN);
 				SendKey('E');
 				SendKey('E', KEY_UP);
@@ -664,10 +701,15 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			break;
 
 		case VK_S:
-			if (Kill_SKey) {Kill_SKey=FALSE; return 1;}
+			OutputDebugStringA(LPCSTR("VK_S Up : "));
+			if (Kill_SKey) {Kill_SKey=FALSE; OutputDebugStringA(LPCSTR("kill\n")); return 1;}
+			break;
+		default: //if other key is pressed, just pass it
+			OutputDebugStringA(LPCSTR("other key Up : "));
 			break;
 		}		
 	}
 
+	OutputDebugStringA(LPCSTR("pass\n"));
 	return CallNextHookEx(kbhHook, nCode, wParam, (LPARAM)(&kbh));
 }
