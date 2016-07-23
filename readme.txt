@@ -35,6 +35,6 @@ Modified by Cyrillev91 :
 - Middle click now with 2 fingers Tap and Right click with 3 fingers Tap
 23/07/2016 :
 - Add Debug string info
-- optimize 3 fingers Tap and disable 3/2 fingers Tap
+- optimize 3 fingers Tap and optimze option to disable 3/2 fingers Tap
 
 
