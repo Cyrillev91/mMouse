@@ -36,5 +36,6 @@ Modified by Cyrillev91 :
 23/07/2016 :
 - Add Debug string info
 - optimize 3 fingers Tap and optimze option to disable 3/2 fingers Tap
+http://dl.free.fr/v3CtrC74N
 
 
