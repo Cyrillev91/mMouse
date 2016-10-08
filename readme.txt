@@ -37,5 +37,6 @@ Modified by Cyrillev91 :
 - Add Debug string info
 - optimize 3 fingers Tap and optimze option to disable 3/2 fingers Tap
 http://dl.free.fr/v3CtrC74N
+https://github.com/Cyrillev91/mMouse/releases/latest
 
 
