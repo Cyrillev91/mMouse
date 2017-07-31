@@ -33,6 +33,10 @@
 #define DELAY_TIMER_ID			2100
 #define DELAY_TIMER_VALUE		30	// wait 30ms for detect software keypress or human keypress.
 
+//#define OutputDebugStringA
+
+
+
 //Structure used by WH_KEYBOARD_LL
 typedef struct KBHOOKSTRUCT {
 	DWORD   dwKeyCode;  //they usually use vkCode, for virtual key code
@@ -150,7 +154,9 @@ void SendMouseClick(DWORD dwFlags, DWORD dx, DWORD dy, DWORD dwData, ULONG_PTR d
 
 	//wait until the Click is process by the hook or wait 1s until break out while
 	int k = 11;
-	while (passNextClick && k>1) { Sleep(3); k--; }
+	while (passNextClick && k>1) { Sleep(3); k--; OutputDebugStringA(LPCSTR("SendMouseClick - wait\n"));}
+	OutputDebugStringA(LPCSTR("SendMouseClick - end\n"));
+
 }
 
 
@@ -427,10 +433,27 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 	
 
 	if (nCode < HC_ACTION)
+	{
+		OutputDebugStringA(LPCSTR("nCode < HC_ACTION ==> Pass\n"));
 		return CallNextHookEx(mousehHook, nCode, wParam, lParam);
+	}
 	if (passNextClick)
 	{
+
+
 		passNextClick = FALSE;
+		if (wParam == WM_RBUTTONDOWN)        { OutputDebugStringA(LPCSTR("passNextClick (WM_RBUTTONDOWN) ==> Pass\n")); }
+		else if (wParam == WM_RBUTTONUP)     { OutputDebugStringA(LPCSTR("passNextClick (WM_RBUTTONUP) ==> Pass\n")); }
+		else if (wParam == WM_RBUTTONDBLCLK) { OutputDebugStringA(LPCSTR("passNextClick (WM_RBUTTONDBLCLK) ==> Pass\n")); }
+		else if (wParam == WM_MBUTTONDOWN)   { OutputDebugStringA(LPCSTR("passNextClick (WM_MBUTTONDOWN) ==> Pass\n")); }
+		else if (wParam == WM_MBUTTONUP)     { OutputDebugStringA(LPCSTR("passNextClick (WM_MBUTTONUP) ==> Pass\n")); }
+		else if (wParam == WM_MBUTTONDBLCLK) { OutputDebugStringA(LPCSTR("passNextClick (WM_MBUTTONDBLCLK) ==> Pass\n")); }
+		else if (wParam == WM_LBUTTONDOWN)   { OutputDebugStringA(LPCSTR("passNextClick (WM_LBUTTONDOWN) ==> Pass\n")); }
+		else if (wParam == WM_LBUTTONUP)     { OutputDebugStringA(LPCSTR("passNextClick (WM_LBUTTONUP) ==> Pass\n")); }
+		else if (wParam == WM_LBUTTONDBLCLK) { OutputDebugStringA(LPCSTR("passNextClick (WM_LBUTTONDBLCLK) ==> Pass\n")); }
+		else if (wParam == WM_MOUSEFIRST)    { OutputDebugStringA(LPCSTR("passNextClick (WM_MOUSEFIRST) ==> Pass\n")); }
+		else if (wParam == WM_MOUSEMOVE)     { OutputDebugStringA(LPCSTR("passNextClick (WM_MOUSEMOVE) ==> Pass\n")); }
+		else { OutputDebugStringA(LPCSTR("passNextClick ==> Pass\n")); }
 		return CallNextHookEx(mousehHook, nCode, wParam, lParam);
 	}
 
@@ -451,8 +474,14 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 			if (timerOn && RButtonDown)
 			{
 				StopTimeOut(); // stop LWIN being fired on timer
-				OutputDebugStringA(LPCSTR("kill\n"));
-				sendMMiddle();
+				//KillTimer(hHiddenDialog, DELAY_TIMER_ID);
+				//timerOn = FALSE;
+
+				//OutputDebugStringA(LPCSTR("kill\n"));
+				////sendMMiddle(); // dure trop longtemps du coup le clic droit est envoyé
+				//Sleep(300);
+				SendMouseClick(MOUSEEVENTF_MIDDLEDOWN, 0, 0, NULL, NULL);
+				SendMouseClick(MOUSEEVENTF_MIDDLEUP, 0, 0, NULL, NULL);
 				RButtonDown = FALSE;				
 				return 1; //kill the key
 			}
