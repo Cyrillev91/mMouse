@@ -12,7 +12,7 @@
 // Add : SendMouseClick() function, and change function name : sendKey() ==> SendKey()
 //
 // 01/09/2017
-// Fix : send Middle and Right Click 
+// Fix : send Middle and Right Click
 // MSDN : https://msdn.microsoft.com/en-us/library/windows/desktop/ms644986(v=vs.85).aspx
 // The hook procedure should process a message in less time than the data entry specified in the LowLevelHooksTimeout value in the following registry key:
 // HKEY_CURRENT_USER\Control Panel\Desktop
@@ -21,6 +21,7 @@
 // There is no way for the application to know whether the hook is removed.
 // ==> Use thread to send Middle and Right Click so that the function is faster than LowLevelHooksTimeout
 //     (and change LowLevelHooksTimeout in Windows 10 has no effect ???)
+// ==> Send Open Windows Explorer by Thread
 //
 // Test : OK with SmartGesture_Win10_64_VER409 http://dlcdnet.asus.com/pub/ASUS/nb/Apps_for_Win10/SmartGesture/SmartGesture_Win10_64_VER409.zip?_ga=2.172942123.962806994.1504290823-185335011.1500703387
 //      : NOK with 4.0.17 (not ok with : Backward / Forward (3 fingers swipe left / right) beacause Smart Gesture Send other key)
@@ -538,6 +539,30 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 	return CallNextHookEx(mousehHook, nCode, wParam, lParam);
 }
 
+
+DWORD WINAPI OpenExplorer(LPVOID lpParam)
+{
+	// Open Explorer (LWIN + E)
+	OutputDebugStringA(LPCSTR("(mMouse : open File Explorer)\n"));
+	SendKey(VK_LWIN);
+	SendKey('E');
+	SendKey('E', KEY_UP);
+	SendKey(VK_LWIN, KEY_UP);
+	return 0;
+}
+
+void OpenExplorerThread()
+{
+	CreateThread(
+		NULL,                   // default security attributes
+		0,                      // use default stack size  
+		OpenExplorer,       // thread function name
+		NULL,          // argument to thread function 
+		0,                      // use default creation flags 
+		NULL);   // returns the thread identifier 
+}
+
+
 // Hook process of Keyboard hook
 // Process cases of key-press to determine when to send mouse button 3,4,5
 // Everything goes here
@@ -766,11 +791,12 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			if (OpenFileExplorer)
 			{
 				// Open Explorer (LWIN + E)
-				OutputDebugStringA(LPCSTR("(mMouse : open File Explorer)\n"));
-				SendKey(VK_LWIN);
-				SendKey('E');
-				SendKey('E', KEY_UP);
-				SendKey(VK_LWIN, KEY_UP);
+				//OutputDebugStringA(LPCSTR("(mMouse : open File Explorer)\n"));
+				//SendKey(VK_LWIN);
+				//SendKey('E');
+				//SendKey('E', KEY_UP);
+				//SendKey(VK_LWIN, KEY_UP);
+				OpenExplorerThread();
 				OpenFileExplorer = FALSE;
 			}
 			LWinDown = FALSE;
