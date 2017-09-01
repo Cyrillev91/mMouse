@@ -40,3 +40,17 @@ http://dl.free.fr/v3CtrC74N
 https://github.com/Cyrillev91/mMouse/releases/latest
 
 
+01/09/2017 :
+Fix : send Middle and Right Click
+MSDN : https://msdn.microsoft.com/en-us/library/windows/desktop/ms644986(v=vs.85).aspx
+The hook procedure should process a message in less time than the data entry specified in the LowLevelHooksTimeout value in the following registry key:
+HKEY_CURRENT_USER\Control Panel\Desktop
+The value is in milliseconds. If the hook procedure times out, the system passes the message to the next hook.  <---
+However, on Windows 7 and later, the hook is silently removed without being called.
+There is no way for the application to know whether the hook is removed.
+==> Use thread to send Middle and Right Click so that the function is faster than LowLevelHooksTimeout
+    (and change LowLevelHooksTimeout in Windows 10 has no effect ???)
+==> Send Open Windows Explorer by Thread
+
+Test : OK with SmartGesture_Win10_64_VER409 http://dlcdnet.asus.com/pub/ASUS/nb/Apps_for_Win10/SmartGesture/SmartGesture_Win10_64_VER409.zip?_ga=2.172942123.962806994.1504290823-185335011.1500703387
+     : NOK with 4.0.17 (not ok with : Backward / Forward (3 fingers swipe left / right) beacause Smart Gesture Send other key)
