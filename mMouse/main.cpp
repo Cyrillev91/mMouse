@@ -11,6 +11,19 @@
 // Fix : while (passNextKey || k>1) {Sleep(3); k--;}  ==> while (passNextKey && k>1) {Sleep(3); k--;} 
 // Add : SendMouseClick() function, and change function name : sendKey() ==> SendKey()
 //
+// 01/09/2017
+// Fix : send Middle and Right Click 
+// MSDN : https://msdn.microsoft.com/en-us/library/windows/desktop/ms644986(v=vs.85).aspx
+// The hook procedure should process a message in less time than the data entry specified in the LowLevelHooksTimeout value in the following registry key:
+// HKEY_CURRENT_USER\Control Panel\Desktop
+// The value is in milliseconds. If the hook procedure times out, the system passes the message to the next hook.  <---
+// However, on Windows 7 and later, the hook is silently removed without being called.
+// There is no way for the application to know whether the hook is removed.
+// ==> Use thread to send Middle and Right Click so that the function is faster than LowLevelHooksTimeout
+//     (and change LowLevelHooksTimeout in Windows 10 has no effect ???)
+//
+// Test : OK with SmartGesture_Win10_64_VER409 http://dlcdnet.asus.com/pub/ASUS/nb/Apps_for_Win10/SmartGesture/SmartGesture_Win10_64_VER409.zip?_ga=2.172942123.962806994.1504290823-185335011.1500703387
+//      : NOK with 4.0.17 (not ok with : Backward / Forward (3 fingers swipe left / right) beacause Smart Gesture Send other key)
 
 #include <windows.h>
 #include <tchar.h>
@@ -99,7 +112,7 @@ void ShowContextMenu(HWND hWnd)
 	HMENU hMenu = CreatePopupMenu();
 	if(hMenu)
 	{
-		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 23/07/2016...");
+		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 01/09/2017...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix (2 fingers Tap)");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward (3 fingers swipe left / right)");
@@ -143,7 +156,7 @@ void SendKey(DWORD vkKey, cKeyEvent keyevent = KEY_DOWN)
 
 	//wait until the key is process by the hook or wait 1s until break out while
 	int k=11;
-	while (passNextKey && k>1) {Sleep(3); k--;} 
+	while (passNextKey && (k>1)) {Sleep(3); k--;} 
 
 }
 
@@ -154,8 +167,8 @@ void SendMouseClick(DWORD dwFlags, DWORD dx, DWORD dy, DWORD dwData, ULONG_PTR d
 
 	//wait until the Click is process by the hook or wait 1s until break out while
 	int k = 11;
-	while (passNextClick && k>1) { Sleep(3); k--; OutputDebugStringA(LPCSTR("SendMouseClick - wait\n"));}
-	OutputDebugStringA(LPCSTR("SendMouseClick - end\n"));
+	while (passNextClick && (k>1)) { Sleep(3); k--; OutputDebugStringA(LPCSTR("SendMouseClick - wait\n"));}
+	//OutputDebugStringA(LPCSTR("SendMouseClick - end\n"));
 
 }
 
@@ -411,20 +424,49 @@ void sendMNext()
 }
 
 //Middle mouse
-void sendMMiddle()
+DWORD WINAPI sendMMiddle(LPVOID lpParam)
 {
 	OutputDebugStringA(LPCSTR("(mMouse : send MiddleClick)\n"));
 	SendMouseClick(MOUSEEVENTF_MIDDLEDOWN,0,0,NULL,NULL);
 	SendMouseClick(MOUSEEVENTF_MIDDLEUP,0,0,NULL,NULL);
+
+	return 0;
 }
 
+
+void sendMMiddleThread()
+{
+	CreateThread(
+		NULL,                   // default security attributes
+		0,                      // use default stack size  
+		sendMMiddle,       // thread function name
+		NULL,          // argument to thread function 
+		0,                      // use default creation flags 
+		NULL);   // returns the thread identifier 
+}
+
+
 //Right mouse
-void sendMRight()
+DWORD WINAPI sendMRight(LPVOID lpParam)
 {
 	OutputDebugStringA(LPCSTR("(mMouse : send RightClick)\n"));
 	SendMouseClick(MOUSEEVENTF_RIGHTDOWN, 0, 0, NULL, NULL);
 	SendMouseClick(MOUSEEVENTF_RIGHTUP, 0, 0, NULL, NULL);
+	return 0;
 }
+
+
+void sendMRightThread()
+{
+	CreateThread(
+		NULL,                   // default security attributes
+		0,                      // use default stack size  
+		sendMRight,       // thread function name
+		NULL,          // argument to thread function 
+		0,                      // use default creation flags 
+		NULL);   // returns the thread identifier 
+}
+
 // Hook process of mouse hook
 // Process cases of mouse-button to determine when to send mouse button 3,4,5
 // Everything goes here
@@ -476,13 +518,17 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 				StopTimeOut(); // stop LWIN being fired on timer
 				//KillTimer(hHiddenDialog, DELAY_TIMER_ID);
 				//timerOn = FALSE;
-
+                
+				OutputDebugStringA(LPCSTR("Kill\n"));
+				sendMMiddleThread();
 				//OutputDebugStringA(LPCSTR("kill\n"));
 				////sendMMiddle(); // dure trop longtemps du coup le clic droit est envoyé
 				//Sleep(300);
+				/*
 				SendMouseClick(MOUSEEVENTF_MIDDLEDOWN, 0, 0, NULL, NULL);
 				SendMouseClick(MOUSEEVENTF_MIDDLEUP, 0, 0, NULL, NULL);
 				RButtonDown = FALSE;				
+				*/
 				return 1; //kill the key
 			}
 			OutputDebugStringA(LPCSTR("pass\n"));
@@ -641,7 +687,7 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 				Kill_SKey = TRUE; // we have a match 's'
 				OutputDebugStringA(LPCSTR("kill\n"));
 				//sendMMiddle();
-				sendMRight();
+				sendMRightThread();
 				return 1; //kill the key
 			}
 			else if (LWinDown)
@@ -659,9 +705,11 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 				//return -1;
 			}
 			break;
-		
+
 		default: //if other key is pressed, just pass it
-			OutputDebugStringA(LPCSTR("other key Down : "));
+			if (kbh.dwKeyCode == VK_LSHIFT)      { OutputDebugStringA(LPCSTR("*LSHIFT down : "));   }
+			else if (kbh.dwKeyCode == VK_RSHIFT) { OutputDebugStringA(LPCSTR("*RSHIFT down : "));   }
+			else                                 { OutputDebugStringA(LPCSTR("other key Down : ")); }
 			if (LWinDown && timerOn) {StopTimeOut(); timerTick();Sleep(10);}
 				break; 
 				
@@ -734,6 +782,9 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			if (Kill_SKey) {Kill_SKey=FALSE; OutputDebugStringA(LPCSTR("kill\n")); return 1;}
 			break;
 		default: //if other key is pressed, just pass it
+			if (kbh.dwKeyCode == VK_LSHIFT) { OutputDebugStringA(LPCSTR("*LSHIFT Up : ")); }
+			else if (kbh.dwKeyCode == VK_RSHIFT) { OutputDebugStringA(LPCSTR("*RSHIFT Up : ")); }
+			else { OutputDebugStringA(LPCSTR("other key Up : ")); }
 			OutputDebugStringA(LPCSTR("other key Up : "));
 			break;
 		}		
