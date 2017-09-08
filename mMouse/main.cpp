@@ -29,8 +29,10 @@
 // 08/09/2017
 // Use Thread to send Backward / Forward (3 fingers swipe left / right)
 // Fix : Send RButtonDown in some case
-// Fix ; SendKey() function
-
+// Fix : SendKey() function
+// Disable OutputDebugStringA() function
+// Test : OK with SmartGesture 4.0.9 and 4.0.17
+// SmartGesture_Win10_64_VER409 http://dlcdnet.asus.com/pub/ASUS/nb/Apps_for_Win10/SmartGesture/SmartGesture_Win10_64_VER409.zip?_ga=2.172942123.962806994.1504290823-185335011.1500703387
 
 
 #include <windows.h>
@@ -54,7 +56,7 @@
 #define DELAY_TIMER_ID			2100
 #define DELAY_TIMER_VALUE		30	// wait 30ms for detect software keypress or human keypress.
 
-//#define OutputDebugStringA
+#define OutputDebugStringA  //Disable OutputDebugStringA function
 
 
 

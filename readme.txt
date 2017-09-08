@@ -52,5 +52,11 @@ There is no way for the application to know whether the hook is removed.
     (and change LowLevelHooksTimeout in Windows 10 has no effect ???)
 ==> Send Open Windows Explorer by Thread
 
-Test : OK with SmartGesture_Win10_64_VER409 http://dlcdnet.asus.com/pub/ASUS/nb/Apps_for_Win10/SmartGesture/SmartGesture_Win10_64_VER409.zip?_ga=2.172942123.962806994.1504290823-185335011.1500703387
-     : NOK with 4.0.17 (not ok with : Backward / Forward (3 fingers swipe left / right) beacause Smart Gesture Send other key)
+08/09/2017
+Use Thread to send Backward / Forward (3 fingers swipe left / right)
+Fix : Send RButtonDown in some case
+Fix : SendKey() function
+Disable OutputDebugStringA() function
+
+Test : OK with SmartGesture 4.0.9 and 4.0.17
+SmartGesture_Win10_64_VER409 http://dlcdnet.asus.com/pub/ASUS/nb/Apps_for_Win10/SmartGesture/SmartGesture_Win10_64_VER409.zip?_ga=2.172942123.962806994.1504290823-185335011.1500703387
