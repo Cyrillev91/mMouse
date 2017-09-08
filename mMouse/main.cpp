@@ -25,6 +25,13 @@
 //
 // Test : OK with SmartGesture_Win10_64_VER409 http://dlcdnet.asus.com/pub/ASUS/nb/Apps_for_Win10/SmartGesture/SmartGesture_Win10_64_VER409.zip?_ga=2.172942123.962806994.1504290823-185335011.1500703387
 //      : NOK with 4.0.17 (not ok with : Backward / Forward (3 fingers swipe left / right) beacause Smart Gesture Send other key)
+//
+// 08/09/2017
+// Use Thread to send Backward / Forward (3 fingers swipe left / right)
+// Fix : Send RButtonDown in some case
+// Fix ; SendKey() function
+
+
 
 #include <windows.h>
 #include <tchar.h>
@@ -113,7 +120,7 @@ void ShowContextMenu(HWND hWnd)
 	HMENU hMenu = CreatePopupMenu();
 	if(hMenu)
 	{
-		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 01/09/2017...");
+		InsertMenu(hMenu, -1, MF_BYPOSITION , SM_ABOUTAPP, L"About mMouse 0.2d mod 08/09/2017...");
 		InsertMenu(hMenu, -1, MF_SEPARATOR, WM_APP+3, NULL);
 		InsertMenu(hMenu, -1, (ThreeFingerTap)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_TAP, L"Middle mouse fix (2 fingers Tap)");
 		InsertMenu(hMenu, -1, (ThreeFingerSwipe)?MF_CHECKED:MF_UNCHECKED , SM_THREEMOUSE_SWIPE, L"Backward / Forward (3 fingers swipe left / right)");
@@ -132,6 +139,20 @@ void SetTimeOut()
 {
 	SetTimer(hHiddenDialog, DELAY_TIMER_ID, DELAY_TIMER_VALUE, NULL);
 	timerOn = TRUE;
+
+	if (LAltDown)
+	{
+		OutputDebugStringA(LPCSTR("SetTimeOut() : LAltDown == true \n"));
+	}
+	
+	if (LWinDown)
+	{
+		OutputDebugStringA(LPCSTR("SetTimeOut() : LWinDown == true \n"));
+	}
+	if (RButtonDown)
+	{
+		OutputDebugStringA(LPCSTR("SetTimeOut() : RButtonDown == true \n"));
+	}   
 }
 
 void SetTimeOut(int milisec)
@@ -148,9 +169,9 @@ void StopTimeOut()
 
 void SendKey(DWORD vkKey, cKeyEvent keyevent = KEY_DOWN)
 {	
-	DWORD _keyevent;
+	DWORD _keyevent = 0x0;
 	if (keyevent == KEY_UP) _keyevent = KEYEVENTF_KEYUP; 
-	else _keyevent = KEYEVENTF_EXTENDEDKEY; 
+	//else _keyevent = KEYEVENTF_EXTENDEDKEY; 
 
 	passNextKey = TRUE;
 	keybd_event(vkKey, MapVirtualKey(vkKey, 0), _keyevent,0 );
@@ -517,6 +538,7 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, L
 			if (timerOn && RButtonDown)
 			{
 				StopTimeOut(); // stop LWIN being fired on timer
+                RButtonDown = FALSE;
 				//KillTimer(hHiddenDialog, DELAY_TIMER_ID);
 				//timerOn = FALSE;
                 
@@ -562,6 +584,44 @@ void OpenExplorerThread()
 		NULL);   // returns the thread identifier 
 }
 
+DWORD WINAPI SendBackward(LPVOID lpParam)
+{
+	OutputDebugStringA(LPCSTR("(mMouse : send backward)\n"));
+	SendKey(VK_LEFT);
+	SendKey(VK_LEFT, KEY_UP);
+	return 0;
+}
+
+void SendBackwardThread()
+{
+	CreateThread(
+		NULL,                   // default security attributes
+		0,                      // use default stack size  
+		SendBackward,       // thread function name
+		NULL,          // argument to thread function 
+		0,                      // use default creation flags 
+		NULL);   // returns the thread identifier 
+}
+
+
+DWORD WINAPI SendForward(LPVOID lpParam)
+{
+	OutputDebugStringA(LPCSTR("(mMouse : send forward)\n"));
+	SendKey(VK_RIGHT);
+	SendKey(VK_RIGHT, KEY_UP);
+	return 0;
+}
+
+void SendForwardThread()
+{
+	CreateThread(
+		NULL,                   // default security attributes
+		0,                      // use default stack size  
+		SendForward,       // thread function name
+		NULL,          // argument to thread function 
+		0,                      // use default creation flags 
+		NULL);   // returns the thread identifier 
+}
 
 // Hook process of Keyboard hook
 // Process cases of key-press to determine when to send mouse button 3,4,5
@@ -576,6 +636,17 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 	if (passNextKey)
 	{
 		passNextKey = FALSE;
+		if      ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) && (kbh.dwKeyCode == VK_LMENU)) { OutputDebugStringA(LPCSTR("passNextKey (VK_LMENU Down) ==> Pass\n")); }
+		else if ((wParam == WM_KEYUP   || wParam == WM_SYSKEYUP)   && (kbh.dwKeyCode == VK_LMENU)) { OutputDebugStringA(LPCSTR("passNextKey (VK_LMENU Up) ==> Pass\n")); }
+		else if ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) && (kbh.dwKeyCode == VK_LEFT))  { OutputDebugStringA(LPCSTR("passNextKey (VK_LEFT Down) ==> Pass\n")); }
+		else if ((wParam == WM_KEYUP   || wParam == WM_SYSKEYUP)   && (kbh.dwKeyCode == VK_LEFT))  { OutputDebugStringA(LPCSTR("passNextKey (VK_LEFT Up) ==> Pass\n")); }
+		else if ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) && (kbh.dwKeyCode == VK_RIGHT)) { OutputDebugStringA(LPCSTR("passNextKey (VK_RIGHT Down) ==> Pass\n")); }
+		else if ((wParam == WM_KEYUP   || wParam == WM_SYSKEYUP)   && (kbh.dwKeyCode == VK_RIGHT)) { OutputDebugStringA(LPCSTR("passNextKey (VK_RIGHT Up) ==> Pass\n")); }
+		else if ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) && (kbh.dwKeyCode == VK_LWIN))  { OutputDebugStringA(LPCSTR("passNextKey (VK_LWIN Down) ==> Pass\n")); }
+		else if ((wParam == WM_KEYUP   || wParam == WM_SYSKEYUP)   && (kbh.dwKeyCode == VK_LWIN))  { OutputDebugStringA(LPCSTR("passNextKey (VK_LWIN Up) ==> Pass\n")); }
+		else if ((wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) && (kbh.dwKeyCode == 'E'))  { OutputDebugStringA(LPCSTR("passNextKey ('E' Down) ==> Pass\n")); }
+		else if ((wParam == WM_KEYUP   || wParam == WM_SYSKEYUP)   && (kbh.dwKeyCode == 'E'))  { OutputDebugStringA(LPCSTR("passNextKey ('E' Up) ==> Pass\n")); }
+		else { OutputDebugStringA(LPCSTR("passNextKey ==> Pass\n")); }
 		return CallNextHookEx(kbhHook, nCode, wParam, (LPARAM)(&kbh)); 
 	}
 	
@@ -656,9 +727,10 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 				OutputDebugStringA(LPCSTR("kill\n"));
 				if (SwipeReady) 
 				{
-					OutputDebugStringA(LPCSTR("(mMouse : send backward)\n"));
-					SendKey(VK_LEFT);
-					SendKey(VK_LEFT,KEY_UP);
+					//OutputDebugStringA(LPCSTR("(mMouse : send backward)\n"));
+					//SendKey(VK_LEFT);
+					//SendKey(VK_LEFT,KEY_UP);
+					SendBackwardThread();
 					SwipeReady = FALSE;
 				}				
 				return 1;
@@ -678,9 +750,10 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 				OutputDebugStringA(LPCSTR("kill\n"));
 				if (SwipeReady) 
 				{
-					OutputDebugStringA(LPCSTR("(mMouse : send forward)\n"));
-					SendKey(VK_RIGHT);
-					SendKey(VK_RIGHT,KEY_UP);
+					//OutputDebugStringA(LPCSTR("(mMouse : send forward)\n"));
+					//SendKey(VK_RIGHT);
+					//SendKey(VK_RIGHT,KEY_UP);
+					SendForwardThread();
 					SwipeReady = FALSE;
 				}
 				return 1;
@@ -732,12 +805,11 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			break;
 
 		default: //if other key is pressed, just pass it
-			if (kbh.dwKeyCode == VK_LSHIFT)      { OutputDebugStringA(LPCSTR("*LSHIFT down : "));   }
-			else if (kbh.dwKeyCode == VK_RSHIFT) { OutputDebugStringA(LPCSTR("*RSHIFT down : "));   }
-			else                                 { OutputDebugStringA(LPCSTR("other key Down : ")); }
+			OutputDebugStringA(LPCSTR("other key Down : "));
+
 			if (LWinDown && timerOn) {StopTimeOut(); timerTick();Sleep(10);}
 				break; 
-				
+
 		}
 
 		// if other keys, just do nothing at all
@@ -807,13 +879,10 @@ __declspec(dllexport) LRESULT CALLBACK KBHookProc (int nCode, WPARAM wParam, LPA
 			OutputDebugStringA(LPCSTR("VK_S Up : "));
 			if (Kill_SKey) {Kill_SKey=FALSE; OutputDebugStringA(LPCSTR("kill\n")); return 1;}
 			break;
+
 		default: //if other key is pressed, just pass it
-			if (kbh.dwKeyCode == VK_LSHIFT) { OutputDebugStringA(LPCSTR("*LSHIFT Up : ")); }
-			else if (kbh.dwKeyCode == VK_RSHIFT) { OutputDebugStringA(LPCSTR("*RSHIFT Up : ")); }
-			else { OutputDebugStringA(LPCSTR("other key Up : ")); }
 			OutputDebugStringA(LPCSTR("other key Up : "));
-			break;
-		}		
+		}
 	}
 
 	OutputDebugStringA(LPCSTR("pass\n"));
